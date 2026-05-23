@@ -14,6 +14,7 @@ from app.core.db import dispose_engine, get_sessionmaker
 from app.core.dependencies import verify_csrf
 from app.core.logging import configure_logging
 from app.core.redis import close_redis, get_redis_client
+from app.routers import activities as activities_router
 from app.routers import auth as auth_router
 from app.routers import users as users_router
 
@@ -77,6 +78,11 @@ app.include_router(
 )
 app.include_router(
     users_router.router,
+    prefix="/api/v1",
+    dependencies=[Depends(verify_csrf)],
+)
+app.include_router(
+    activities_router.router,
     prefix="/api/v1",
     dependencies=[Depends(verify_csrf)],
 )

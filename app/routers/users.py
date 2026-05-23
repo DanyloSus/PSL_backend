@@ -1,9 +1,12 @@
 from __future__ import annotations
 
-from fastapi import APIRouter
+from datetime import datetime
+
+from fastapi import APIRouter, Query
 
 from app.core.dependencies import CurrentUser, SessionDep
-from app.repositories import user_stat_repo
+from app.repositories import activity_log_repo, user_stat_repo
+from app.schemas.activity import ActivityHistoryEffect, ActivityHistoryEntry
 from app.schemas.auth import UserPublic
 from app.schemas.user import StatOut, UserStatOut
 from app.services.leveling import progress
@@ -32,3 +35,27 @@ async def get_my_stats(current: CurrentUser, session: SessionDep) -> list[UserSt
             )
         )
     return out
+
+
+@router.get("/me/activity-history", response_model=list[ActivityHistoryEntry])
+async def get_my_activity_history(
+    current: CurrentUser,
+    session: SessionDep,
+    limit: int = Query(default=20, ge=1, le=100),
+    before: datetime | None = None,
+) -> list[ActivityHistoryEntry]:
+    logs = await activity_log_repo.list_for_user(session, current.id, limit=limit, before=before)
+    return [
+        ActivityHistoryEntry(
+            id=log.id,
+            activity_template_id=log.template_id,
+            quantity=log.quantity,
+            total_xp_applied=log.total_xp_applied,
+            created_at=log.created_at,
+            effects=[
+                ActivityHistoryEffect(stat_id=e.stat_id, xp_applied=e.xp_applied)
+                for e in log.effects_applied
+            ],
+        )
+        for log in logs
+    ]
