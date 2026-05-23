@@ -16,6 +16,7 @@ from app.core.security import (
 )
 from app.models.user import User
 from app.repositories import refresh_token_repo, user_repo
+from app.services import user_service
 
 
 class AuthError(Exception):
@@ -62,6 +63,7 @@ async def register(
         username=username,
         password_hash=hash_password(password),
     )
+    await user_service.initialize_user_stats(session, user.id)
     tokens = await _issue_tokens(session, user)
     await session.commit()
     return tokens
