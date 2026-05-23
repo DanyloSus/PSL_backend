@@ -8,7 +8,9 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_limiter import FastAPILimiter
 from sqlalchemy import text
+from starlette.middleware.sessions import SessionMiddleware
 
+from app.admin.setup import mount_admin
 from app.core.config import get_settings
 from app.core.db import dispose_engine, get_sessionmaker
 from app.core.dependencies import verify_csrf
@@ -40,6 +42,12 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(title="PSL Backend", version="0.1.0", lifespan=lifespan)
 
 _settings = get_settings()
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=_settings.jwt_secret,
+    same_site=_settings.cookie_samesite,
+    https_only=_settings.cookie_secure,
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_settings.cors_origins_list or ["*"],
@@ -86,3 +94,5 @@ app.include_router(
     prefix="/api/v1",
     dependencies=[Depends(verify_csrf)],
 )
+
+mount_admin(app)
