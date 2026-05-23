@@ -49,6 +49,19 @@ uv run mypy app
 uv run pre-commit install
 ```
 
+## Tests
+
+```bash
+# Option A (default): testcontainers spins up disposable Postgres + Redis
+uv run pytest -q
+
+# Option B: reuse running compose Postgres + Redis (faster; needs psl_test DB)
+docker compose exec postgres psql -U psl -d psl -c "CREATE DATABASE psl_test;"
+TEST_DATABASE_URL="postgresql+asyncpg://psl:psl@localhost:5432/psl_test" \
+TEST_REDIS_URL="redis://localhost:6379/1" \
+  uv run pytest -q
+```
+
 ## Layout
 
 ```

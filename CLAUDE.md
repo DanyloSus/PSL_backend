@@ -61,6 +61,9 @@ uv run mypy app
 uv run pytest -q
 uv run pre-commit run --all-files
 
+# Tests (testcontainers by default; or set TEST_DATABASE_URL + TEST_REDIS_URL to reuse compose)
+uv run pytest -q
+
 # Admin bootstrap (PR6+)
 uv run psl create-admin --email a@b.com --username admin --password "..."
 ```
