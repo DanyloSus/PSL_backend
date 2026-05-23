@@ -1,51 +1,42 @@
 from __future__ import annotations
 
-import logging
-import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any
 
 import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
-_ENV = os.getenv("ENV", "local")
-
-
-def _configure_logging() -> None:
-    timestamper = structlog.processors.TimeStamper(fmt="iso")
-    shared_processors: list[Any] = [
-        structlog.contextvars.merge_contextvars,
-        structlog.processors.add_log_level,
-        timestamper,
-    ]
-    if _ENV == "local":
-        renderer: Any = structlog.dev.ConsoleRenderer()
-    else:
-        renderer = structlog.processors.JSONRenderer()
-    structlog.configure(
-        processors=[*shared_processors, renderer],
-        wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
-        cache_logger_on_first_use=True,
-    )
+from app.core.config import get_settings
+from app.core.db import dispose_engine, get_sessionmaker
+from app.core.logging import configure_logging
+from app.core.redis import close_redis, get_redis_client
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    _configure_logging()
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    configure_logging()
     log = structlog.get_logger()
-    log.info("app.start", env=_ENV)
-    yield
-    log.info("app.stop")
+    settings = get_settings()
+    log.info("app.start", env=settings.env)
+    # Warm singletons.
+    get_sessionmaker()
+    get_redis_client()
+    try:
+        yield
+    finally:
+        log.info("app.stop")
+        await dispose_engine()
+        await close_redis()
 
 
 app = FastAPI(title="PSL Backend", version="0.1.0", lifespan=lifespan)
 
-_origins = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
+_settings = get_settings()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_origins or ["*"],
+    allow_origins=_settings.cors_origins_list or ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -54,4 +45,21 @@ app.add_middleware(
 
 @app.get("/healthz")
 async def healthz() -> dict[str, str]:
-    return {"status": "ok"}
+    status = "ok"
+    db_status = "ok"
+    redis_status = "ok"
+    try:
+        sm = get_sessionmaker()
+        async with sm() as session:
+            await session.execute(text("SELECT 1"))
+    except Exception:
+        db_status = "down"
+        status = "degraded"
+    try:
+        pong = get_redis_client().ping()
+        if hasattr(pong, "__await__"):
+            await pong
+    except Exception:
+        redis_status = "down"
+        status = "degraded"
+    return {"status": status, "db": db_status, "redis": redis_status}
