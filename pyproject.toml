@@ -14,6 +14,11 @@ dependencies = [
     "asyncpg>=0.29",
     "alembic>=1.13",
     "redis>=5.0",
+    "pyjwt>=2.9",
+    "passlib[argon2]>=1.7",
+    "python-multipart>=0.0.10",
+    "fastapi-limiter==0.1.6",
+    "email-validator>=2.0",
 ]
 
 [dependency-groups]
@@ -63,6 +68,10 @@ exclude = ["app/migrations/"]
 [[tool.mypy.overrides]]
 module = ["app.migrations.*"]
 ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = ["passlib.*", "fastapi_limiter.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
