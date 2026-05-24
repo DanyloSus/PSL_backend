@@ -36,3 +36,13 @@ class InvalidRefreshError(DomainError):
 class MissingRefreshError(DomainError):
     status_code = 401
     detail = "missing refresh token"
+
+
+class TemplateNotFoundError(DomainError):
+    status_code = 404
+    detail = "activity not found"
+
+
+class TemplateDisabledError(DomainError):
+    status_code = 409
+    detail = "activity disabled"
