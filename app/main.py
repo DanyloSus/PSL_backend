@@ -4,14 +4,17 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 import structlog
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi_limiter import FastAPILimiter
 from sqlalchemy import text
 
 from app.core.config import get_settings
 from app.core.db import dispose_engine, get_sessionmaker
+from app.core.dependencies import verify_csrf
 from app.core.logging import configure_logging
 from app.core.redis import close_redis, get_redis_client
+from app.routers import auth as auth_router
 
 
 @asynccontextmanager
@@ -20,13 +23,14 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     log = structlog.get_logger()
     settings = get_settings()
     log.info("app.start", env=settings.env)
-    # Warm singletons.
     get_sessionmaker()
-    get_redis_client()
+    redis = get_redis_client()
+    await FastAPILimiter.init(redis)
     try:
         yield
     finally:
         log.info("app.stop")
+        await FastAPILimiter.close()
         await dispose_engine()
         await close_redis()
 
@@ -63,3 +67,10 @@ async def healthz() -> dict[str, str]:
         redis_status = "down"
         status = "degraded"
     return {"status": status, "db": db_status, "redis": redis_status}
+
+
+app.include_router(
+    auth_router.router,
+    prefix="/api/v1",
+    dependencies=[Depends(verify_csrf)],
+)

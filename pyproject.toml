@@ -17,6 +17,8 @@ dependencies = [
     "pyjwt>=2.9",
     "passlib[argon2]>=1.7",
     "email-validator>=2.0",
+    "fastapi-limiter==0.1.6",
+    "python-multipart>=0.0.10",
 ]
 
 [dependency-groups]
@@ -68,5 +70,5 @@ module = ["app.migrations.*"]
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = ["passlib.*"]
+module = ["passlib.*", "fastapi_limiter.*"]
 ignore_missing_imports = true
