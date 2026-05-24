@@ -12,6 +12,7 @@ from app.core.security import csrf_tokens_match, decode_access_token
 from app.models.user import User, UserRole
 from app.repositories.user_repo import UserRepository
 from app.services.auth_service import AuthService
+from app.services.user_service import UserService
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 CSRF_HEADER = "X-CSRF-Token"
@@ -23,6 +24,13 @@ def get_auth_service(session: SessionDep) -> AuthService:
 
 
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
+
+
+def get_user_service(session: SessionDep) -> UserService:
+    return UserService(session)
+
+
+UserServiceDep = Annotated[UserService, Depends(get_user_service)]
 
 
 def get_user_repository(session: SessionDep) -> UserRepository:
