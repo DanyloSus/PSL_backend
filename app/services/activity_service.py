@@ -86,9 +86,7 @@ class ActivityService:
             raw_delta = effect.xp_change * effective_qty
             user_stat = await self.user_stats.get_for_update(user.id, effect.stat_id)
             if user_stat is None:
-                user_stat = UserStat(
-                    user_id=user.id, stat_id=effect.stat_id, xp=0, level=1
-                )
+                user_stat = UserStat(user_id=user.id, stat_id=effect.stat_id, xp=0, level=1)
                 self.session.add(user_stat)
                 await self.session.flush()
 
