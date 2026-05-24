@@ -29,8 +29,8 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 
 def create_access_token(user_id: uuid.UUID, role: str) -> tuple[str, datetime]:
-    s = get_settings()
-    expires_at = datetime.now(UTC) + timedelta(seconds=s.jwt_access_ttl_seconds)
+    settings = get_settings()
+    expires_at = datetime.now(UTC) + timedelta(seconds=settings.jwt_access_ttl_seconds)
     payload: dict[str, Any] = {
         "sub": str(user_id),
         "role": role,
@@ -38,21 +38,21 @@ def create_access_token(user_id: uuid.UUID, role: str) -> tuple[str, datetime]:
         "exp": expires_at,
         "iat": datetime.now(UTC),
     }
-    token = jwt.encode(payload, s.jwt_secret, algorithm="HS256")
+    token = jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
     return token, expires_at
 
 
 def decode_access_token(token: str) -> dict[str, Any]:
-    s = get_settings()
-    return jwt.decode(token, s.jwt_secret, algorithms=["HS256"])
+    settings = get_settings()
+    return jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
 
 
 def generate_refresh_token() -> tuple[str, str, datetime]:
     """Returns (plain_token, token_hash, expires_at)."""
-    s = get_settings()
+    settings = get_settings()
     raw = secrets.token_urlsafe(48)
     digest = hashlib.sha256(raw.encode()).hexdigest()
-    expires_at = datetime.now(UTC) + timedelta(seconds=s.jwt_refresh_ttl_seconds)
+    expires_at = datetime.now(UTC) + timedelta(seconds=settings.jwt_refresh_ttl_seconds)
     return raw, digest, expires_at
 
 
