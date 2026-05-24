@@ -10,14 +10,14 @@ CSRF_COOKIE = "csrf_token"
 
 
 def _common_kwargs() -> dict[str, object]:
-    s = get_settings()
+    settings = get_settings()
     kw: dict[str, object] = {
-        "secure": s.cookie_secure,
-        "samesite": s.cookie_samesite,
+        "secure": settings.cookie_secure,
+        "samesite": settings.cookie_samesite,
         "path": "/",
     }
-    if s.cookie_domain:
-        kw["domain"] = s.cookie_domain
+    if settings.cookie_domain:
+        kw["domain"] = settings.cookie_domain
     return kw
 
 
@@ -28,20 +28,20 @@ def set_auth_cookies(
     refresh_token: str,
     csrf_token: str,
 ) -> None:
-    s = get_settings()
+    settings = get_settings()
     common = _common_kwargs()
     response.set_cookie(
         ACCESS_COOKIE,
         access_token,
         httponly=True,
-        max_age=s.jwt_access_ttl_seconds,
+        max_age=settings.jwt_access_ttl_seconds,
         **common,  # type: ignore[arg-type]
     )
     response.set_cookie(
         REFRESH_COOKIE,
         refresh_token,
         httponly=True,
-        max_age=s.jwt_refresh_ttl_seconds,
+        max_age=settings.jwt_refresh_ttl_seconds,
         **common,  # type: ignore[arg-type]
     )
     # CSRF cookie readable by JS so frontend can echo it in X-CSRF-Token header.
@@ -49,7 +49,7 @@ def set_auth_cookies(
         CSRF_COOKIE,
         csrf_token,
         httponly=False,
-        max_age=s.jwt_refresh_ttl_seconds,
+        max_age=settings.jwt_refresh_ttl_seconds,
         **common,  # type: ignore[arg-type]
     )
 
