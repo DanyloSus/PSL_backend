@@ -24,7 +24,7 @@ class UserStatRepository:
             .where(UserStat.user_id == user_id)
             .order_by(Stat.display_name)
         )
-        return [(us, s) for us, s in result.all()]
+        return [(user_stat, stat) for user_stat, stat in result.all()]
 
     async def get_for_update(self, user_id: uuid.UUID, stat_id: uuid.UUID) -> UserStat | None:
         result = await self.session.execute(
