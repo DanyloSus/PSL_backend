@@ -8,7 +8,7 @@ from app.core.config import get_settings
 from app.core.db import get_sessionmaker
 from app.core.security import verify_password
 from app.models.user import UserRole
-from app.repositories import user_repo
+from app.repositories.user_repo import UserRepository
 
 
 class AdminAuth(AuthenticationBackend):
@@ -23,7 +23,7 @@ class AdminAuth(AuthenticationBackend):
             return False
         sm = get_sessionmaker()
         async with sm() as session:
-            user = await user_repo.get_by_email(session, email)
+            user = await UserRepository(session).get_by_email(email)
         if user is None or not user.is_active:
             return False
         if user.role is not UserRole.ADMIN:

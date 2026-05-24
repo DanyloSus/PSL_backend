@@ -9,8 +9,8 @@ import typer
 from app.core.db import dispose_engine, get_sessionmaker
 from app.core.security import hash_password
 from app.models.user import UserRole
-from app.repositories import user_repo
-from app.services import user_service
+from app.repositories.user_repo import UserRepository
+from app.services.user_service import UserService
 
 cli = typer.Typer(help="PSL backend CLI", add_completion=False, no_args_is_help=True)
 
@@ -31,7 +31,8 @@ def create_admin(
     async def _run() -> None:
         sm = get_sessionmaker()
         async with sm() as session:
-            existing = await user_repo.get_by_email(session, email)
+            users = UserRepository(session)
+            existing = await users.get_by_email(email)
             if existing is not None:
                 existing.role = UserRole.ADMIN
                 existing.password_hash = hash_password(password)
@@ -39,14 +40,13 @@ def create_admin(
                 await session.commit()
                 typer.echo(f"Promoted existing user {existing.email} to ADMIN.")
                 return
-            user = await user_repo.create(
-                session,
+            user = await users.create(
                 email=email,
                 username=username,
                 password_hash=hash_password(password),
                 role=UserRole.ADMIN,
             )
-            await user_service.initialize_user_stats(session, user.id)
+            await UserService(session).initialize_user_stats(user.id)
             await session.commit()
             typer.echo(f"Created ADMIN user {user.email} ({user.id}).")
         await dispose_engine()
