@@ -84,21 +84,23 @@ class ActivityService:
 
         for effect in template.effects:
             raw_delta = effect.xp_change * effective_qty
-            us = await self.user_stats.get_for_update(user.id, effect.stat_id)
-            if us is None:
-                us = UserStat(user_id=user.id, stat_id=effect.stat_id, xp=0, level=1)
-                self.session.add(us)
+            user_stat = await self.user_stats.get_for_update(user.id, effect.stat_id)
+            if user_stat is None:
+                user_stat = UserStat(
+                    user_id=user.id, stat_id=effect.stat_id, xp=0, level=1
+                )
+                self.session.add(user_stat)
                 await self.session.flush()
 
-            old_xp = us.xp
+            old_xp = user_stat.xp
             new_xp = max(0, old_xp + raw_delta)
             actual_delta = new_xp - old_xp
-            us.xp = new_xp
+            user_stat.xp = new_xp
 
-            old_level = us.level
+            old_level = user_stat.level
             computed_level = LevelingService.level_from_xp(new_xp)
             new_level = max(old_level, computed_level)
-            us.level = new_level
+            user_stat.level = new_level
 
             total_applied += actual_delta
             effects_for_log.append((effect.stat_id, actual_delta))
