@@ -21,20 +21,20 @@ class UserService:
         seeded = await self.stats.list_all()
         if not seeded:
             return
-        await self.user_stats.create_for_user(user_id, [s.id for s in seeded])
+        await self.user_stats.create_for_user(user_id, [stat.id for stat in seeded])
 
     async def get_stats(self, user_id: uuid.UUID) -> list[UserStatOut]:
         rows = await self.user_stats.list_for_user_with_stat(user_id)
         out: list[UserStatOut] = []
-        for us, stat in rows:
-            p = LevelingService.progress(us.xp)
+        for user_stat, stat in rows:
+            progress = LevelingService.progress(user_stat.xp)
             out.append(
                 UserStatOut(
                     stat=StatOut.model_validate(stat),
-                    xp=us.xp,
-                    level=us.level,
-                    xp_into_level=p.xp_into_level,
-                    xp_for_next=p.xp_for_next,
+                    xp=user_stat.xp,
+                    level=user_stat.level,
+                    xp_into_level=progress.xp_into_level,
+                    xp_for_next=progress.xp_for_next,
                 )
             )
         return out
