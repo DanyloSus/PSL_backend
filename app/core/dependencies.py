@@ -10,15 +10,30 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.db import get_session
 from app.core.security import csrf_tokens_match, decode_access_token
 from app.models.user import User, UserRole
-from app.repositories import user_repo
+from app.repositories.user_repo import UserRepository
+from app.services.auth_service import AuthService
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 CSRF_HEADER = "X-CSRF-Token"
 _STATE_CHANGING = {"POST", "PUT", "PATCH", "DELETE"}
 
 
+def get_auth_service(session: SessionDep) -> AuthService:
+    return AuthService(session)
+
+
+AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
+
+
+def get_user_repository(session: SessionDep) -> UserRepository:
+    return UserRepository(session)
+
+
+UserRepositoryDep = Annotated[UserRepository, Depends(get_user_repository)]
+
+
 async def get_current_user(
-    session: SessionDep,
+    users: UserRepositoryDep,
     access_token: Annotated[str | None, Cookie()] = None,
 ) -> User:
     if not access_token:
@@ -43,7 +58,7 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid token subject"
         ) from err
 
-    user = await user_repo.get_by_id(session, user_id)
+    user = await users.get_by_id(user_id)
     if user is None or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="user not active")
     return user
@@ -68,7 +83,6 @@ async def verify_csrf(
 ) -> None:
     if request.method not in _STATE_CHANGING:
         return
-    # Allow login/register/refresh without CSRF (no session yet).
     if request.url.path.endswith(("/auth/login", "/auth/register", "/auth/refresh")):
         return
     if not csrf_tokens_match(csrf_token or "", x_csrf_token or ""):

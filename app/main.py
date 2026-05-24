@@ -4,14 +4,16 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 import structlog
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi_limiter import FastAPILimiter
 from sqlalchemy import text
 
 from app.core.config import get_settings
 from app.core.db import dispose_engine, get_sessionmaker
 from app.core.dependencies import verify_csrf
+from app.core.exceptions import DomainError
 from app.core.logging import configure_logging
 from app.core.redis import close_redis, get_redis_client
 from app.routers import auth as auth_router
@@ -45,6 +47,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(DomainError)
+async def _domain_error_handler(_: Request, exc: DomainError) -> JSONResponse:
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 
 @app.get("/healthz")
