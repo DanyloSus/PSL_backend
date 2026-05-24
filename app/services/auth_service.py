@@ -27,6 +27,7 @@ from app.models.user import User
 from app.repositories.refresh_token_repo import RefreshTokenRepository
 from app.repositories.user_repo import UserRepository
 from app.schemas.auth import AuthResponse, LoginRequest, RegisterRequest, UserPublic
+from app.services import user_service
 
 
 @dataclass(slots=True)
@@ -56,6 +57,7 @@ class AuthService:
             username=payload.username,
             password_hash=hash_password(payload.password),
         )
+        await user_service.initialize_user_stats(self.session, user.id)
         tokens = await self._issue_tokens(user)
         await self.session.commit()
         self._set_cookies(response, tokens)
