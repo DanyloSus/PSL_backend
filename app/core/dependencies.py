@@ -5,16 +5,20 @@ from typing import Annotated
 
 import jwt
 from fastapi import Cookie, Depends, Header, HTTPException, Request, status
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
+from app.core.redis import get_redis
 from app.core.security import csrf_tokens_match, decode_access_token
 from app.models.user import User, UserRole
 from app.repositories.user_repo import UserRepository
+from app.services.activity_service import ActivityService
 from app.services.auth_service import AuthService
 from app.services.user_service import UserService
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
+RedisDep = Annotated[Redis, Depends(get_redis)]
 CSRF_HEADER = "X-CSRF-Token"
 _STATE_CHANGING = {"POST", "PUT", "PATCH", "DELETE"}
 
@@ -38,6 +42,13 @@ def get_user_repository(session: SessionDep) -> UserRepository:
 
 
 UserRepositoryDep = Annotated[UserRepository, Depends(get_user_repository)]
+
+
+def get_activity_service(session: SessionDep, redis: RedisDep) -> ActivityService:
+    return ActivityService(session, redis)
+
+
+ActivityServiceDep = Annotated[ActivityService, Depends(get_activity_service)]
 
 
 async def get_current_user(
