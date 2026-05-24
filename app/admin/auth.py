@@ -21,8 +21,8 @@ class AdminAuth(AuthenticationBackend):
         password = str(form.get("password", ""))
         if not email or not password:
             return False
-        sm = get_sessionmaker()
-        async with sm() as session:
+        session_maker = get_sessionmaker()
+        async with session_maker() as session:
             user = await UserRepository(session).get_by_email(email)
         if user is None or not user.is_active:
             return False
