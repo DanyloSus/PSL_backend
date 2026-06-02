@@ -65,18 +65,30 @@ class ActivityTemplateAdmin(ModelView, model=ActivityTemplate):
     ]
     column_searchable_list = [ActivityTemplate.title]
     column_sortable_list = [ActivityTemplate.title, ActivityTemplate.created_at]
+    # Show the related effects (readable via ActivityEffect.__str__) on the detail page.
+    column_details_list = [
+        ActivityTemplate.id,
+        ActivityTemplate.title,
+        ActivityTemplate.description,
+        ActivityTemplate.input_type,
+        ActivityTemplate.is_enabled,
+        ActivityTemplate.effects,
+        ActivityTemplate.created_at,
+        ActivityTemplate.updated_at,
+    ]
 
 
 class ActivityEffectAdmin(ModelView, model=ActivityEffect):
     name = "Activity Effect"
     name_plural = "Activity Effects"
     icon = "fa-solid fa-arrow-trend-up"
+    # Relationship columns render via __str__ (template title / stat name) instead of raw UUIDs.
     column_list = [
-        ActivityEffect.id,
-        ActivityEffect.template_id,
-        ActivityEffect.stat_id,
+        ActivityEffect.template,
+        ActivityEffect.stat,
         ActivityEffect.xp_change,
     ]
+    column_sortable_list = [ActivityEffect.xp_change]
 
 
 class ActivityLogAdmin(ModelView, model=ActivityLog):

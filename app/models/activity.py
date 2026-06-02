@@ -21,7 +21,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.db import Base
 
 if TYPE_CHECKING:
-    pass
+    from app.models.stat import Stat
 
 
 class ActivityInputType(enum.StrEnum):
@@ -57,6 +57,9 @@ class ActivityTemplate(Base):
         lazy="selectin",
     )
 
+    def __str__(self) -> str:
+        return self.title
+
 
 class ActivityEffect(Base):
     __tablename__ = "activity_effects"
@@ -78,6 +81,10 @@ class ActivityEffect(Base):
     xp_change: Mapped[int] = mapped_column(Integer, nullable=False)
 
     template: Mapped[ActivityTemplate] = relationship(back_populates="effects")
+    stat: Mapped[Stat] = relationship(lazy="selectin")
+
+    def __str__(self) -> str:
+        return f"{self.stat.display_name}: {self.xp_change:+d} XP"
 
 
 class ActivityLog(Base):
