@@ -17,13 +17,13 @@ class AdminAuth(AuthenticationBackend):
 
     async def login(self, request: Request) -> bool:
         form = await request.form()
-        email = str(form.get("username", "")).strip().lower()
+        username = str(form.get("username", "")).strip()
         password = str(form.get("password", ""))
-        if not email or not password:
+        if not username or not password:
             return False
         session_maker = get_sessionmaker()
         async with session_maker() as session:
-            user = await UserRepository(session).get_by_email(email)
+            user = await UserRepository(session).get_by_username(username)
         if user is None or not user.is_active:
             return False
         if user.role is not UserRole.ADMIN:
