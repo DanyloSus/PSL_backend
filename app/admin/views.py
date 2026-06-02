@@ -61,6 +61,8 @@ class ActivityTemplateAdmin(ModelView, model=ActivityTemplate):
         ActivityTemplate.title,
         ActivityTemplate.input_type,
         ActivityTemplate.is_enabled,
+        ActivityTemplate.min_quantity,
+        ActivityTemplate.max_quantity,
         ActivityTemplate.created_at,
     ]
     column_searchable_list = [ActivityTemplate.title]
@@ -73,6 +75,8 @@ class ActivityTemplateAdmin(ModelView, model=ActivityTemplate):
         ActivityTemplate.description,
         ActivityTemplate.input_type,
         ActivityTemplate.is_enabled,
+        ActivityTemplate.min_quantity,
+        ActivityTemplate.max_quantity,
         ActivityTemplate.effects,
         ActivityTemplate.created_at,
         ActivityTemplate.updated_at,
