@@ -180,7 +180,7 @@ uv run psl create-admin --email admin@psl.io --username admin --password "strong
 - Models: UUID PKs as `uuid.UUID`, server-side default via `default=uuid.uuid4`. `created_at` / `updated_at` on every mutable entity, with `server_default=func.now()` and `onupdate=func.now()` where appropriate.
 - Schemas: separate `*Create`, `*Update`, `*Out`. Never reuse models for API IO.
 - Local variables: spell things out. Use `settings`, `user_stat`, `progress`, `cookie_kwargs`, `sessionmaker` — never single letters when the context isn't obvious.
-- Comments: only when WHY is non-obvious (subtle invariant, workaround, surprising behavior). Don't restate the code.
+- Comments: do NOT add code comments unless the user explicitly asks for them. Default to zero comments — write self-explanatory code instead. The only exception is when the user requests comments, or asks you to document a genuinely non-obvious WHY (subtle invariant, workaround, surprising behavior). Never restate the code. When editing existing code, do not introduce new comments on your own initiative.
 
 ## 16. Common commands
 
