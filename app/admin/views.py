@@ -65,6 +65,8 @@ class ActivityTemplateAdmin(ModelView, model=ActivityTemplate):
     ]
     column_searchable_list = [ActivityTemplate.title]
     column_sortable_list = [ActivityTemplate.title, ActivityTemplate.created_at]
+    # Timestamps are DB-managed (server_default / onupdate) — keep them out of the create/edit form.
+    form_excluded_columns = [ActivityTemplate.created_at, ActivityTemplate.updated_at]
     # Show the related effects (readable via ActivityEffect.__str__) on the detail page.
     column_details_list = [
         ActivityTemplate.id,
