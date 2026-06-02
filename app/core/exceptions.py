@@ -46,3 +46,8 @@ class TemplateNotFoundError(DomainError):
 class TemplateDisabledError(DomainError):
     status_code = 409
     detail = "activity disabled"
+
+
+class QuantityOutOfRangeError(DomainError):
+    status_code = 422
+    detail = "quantity out of range"

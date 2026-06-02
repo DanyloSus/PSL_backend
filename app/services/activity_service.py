@@ -8,7 +8,11 @@ from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import TemplateDisabledError, TemplateNotFoundError
+from app.core.exceptions import (
+    QuantityOutOfRangeError,
+    TemplateDisabledError,
+    TemplateNotFoundError,
+)
 from app.models.activity import ActivityInputType
 from app.models.stat import Stat
 from app.models.user import User
@@ -70,9 +74,14 @@ class ActivityService:
         if not template.is_enabled:
             raise TemplateDisabledError
 
-        effective_qty = (
-            1 if template.input_type is ActivityInputType.BINARY else max(1, payload.quantity)
-        )
+        if template.input_type is ActivityInputType.BINARY:
+            effective_qty = 1
+        else:
+            if not template.min_quantity <= payload.quantity <= template.max_quantity:
+                raise QuantityOutOfRangeError(
+                    f"quantity must be between {template.min_quantity} and {template.max_quantity}"
+                )
+            effective_qty = payload.quantity
 
         stat_ids = [eff.stat_id for eff in template.effects]
         stat_rows = await self.session.execute(select(Stat).where(Stat.id.in_(stat_ids)))
@@ -175,5 +184,7 @@ class ActivityService:
             description=template.description,
             input_type=template.input_type,
             is_enabled=template.is_enabled,
+            min_quantity=template.min_quantity,
+            max_quantity=template.max_quantity,
             effects=[ActivityEffectOut.model_validate(e) for e in template.effects],
         )
