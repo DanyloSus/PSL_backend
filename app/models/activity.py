@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     DateTime,
     Enum,
     ForeignKey,
@@ -31,6 +32,11 @@ class ActivityInputType(enum.StrEnum):
 
 class ActivityTemplate(Base):
     __tablename__ = "activity_templates"
+    __table_args__ = (
+        CheckConstraint("min_quantity >= 1", name="ck_template_min_quantity"),
+        CheckConstraint("max_quantity >= min_quantity", name="ck_template_max_ge_min"),
+        CheckConstraint("max_quantity <= 10000", name="ck_template_max_quantity"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     title: Mapped[str] = mapped_column(String(128), nullable=False)
@@ -41,6 +47,12 @@ class ActivityTemplate(Base):
         default=ActivityInputType.BINARY,
     )
     is_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    min_quantity: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="1", default=1
+    )
+    max_quantity: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="100", default=100
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
