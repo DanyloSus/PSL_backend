@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from typing import Any
+
 from sqladmin import ModelView
+from starlette.requests import Request
 
 from app.models.activity import (
     ActivityEffect,
@@ -61,22 +64,51 @@ class ActivityTemplateAdmin(ModelView, model=ActivityTemplate):
         ActivityTemplate.title,
         ActivityTemplate.input_type,
         ActivityTemplate.is_enabled,
+        ActivityTemplate.min_quantity,
+        ActivityTemplate.max_quantity,
         ActivityTemplate.created_at,
     ]
     column_searchable_list = [ActivityTemplate.title]
     column_sortable_list = [ActivityTemplate.title, ActivityTemplate.created_at]
+    form_excluded_columns = [ActivityTemplate.created_at, ActivityTemplate.updated_at]
+    # Show the related effects (readable via ActivityEffect.__str__) on the detail page.
+    column_details_list = [
+        ActivityTemplate.id,
+        ActivityTemplate.title,
+        ActivityTemplate.description,
+        ActivityTemplate.input_type,
+        ActivityTemplate.is_enabled,
+        ActivityTemplate.min_quantity,
+        ActivityTemplate.max_quantity,
+        ActivityTemplate.effects,
+        ActivityTemplate.created_at,
+        ActivityTemplate.updated_at,
+    ]
+
+    async def on_model_change(
+        self, data: dict[str, Any], model: Any, is_created: bool, request: Request
+    ) -> None:
+        min_quantity = int(data["min_quantity"])
+        max_quantity = int(data["max_quantity"])
+        if min_quantity < 1:
+            raise ValueError("Min quantity must be at least 1.")
+        if max_quantity > 10000:
+            raise ValueError("Max quantity must not exceed 10000.")
+        if max_quantity < min_quantity:
+            raise ValueError("Max quantity must be greater than or equal to min quantity.")
 
 
 class ActivityEffectAdmin(ModelView, model=ActivityEffect):
     name = "Activity Effect"
     name_plural = "Activity Effects"
     icon = "fa-solid fa-arrow-trend-up"
+    # Relationship columns render via __str__ (template title / stat name) instead of raw UUIDs.
     column_list = [
-        ActivityEffect.id,
-        ActivityEffect.template_id,
-        ActivityEffect.stat_id,
+        ActivityEffect.template,
+        ActivityEffect.stat,
         ActivityEffect.xp_change,
     ]
+    column_sortable_list = [ActivityEffect.xp_change]
 
 
 class ActivityLogAdmin(ModelView, model=ActivityLog):
