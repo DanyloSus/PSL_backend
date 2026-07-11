@@ -1,0 +1,91 @@
+name: Claude PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main]
+
+# Cancel a superseded run when the PR is force-pushed / updated again —
+# saves subscription tokens on rapid re-pushes.
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: Claude review
+    runs-on: ubuntu-latest
+    # Skip drafts (no point reviewing WIP) and fork PRs (they can't read the
+    # CLAUDE_CODE_OAUTH_TOKEN secret — the run would only fail auth and waste time).
+    if: >-
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      # Pull every prior comment on this PR so the review can skip findings it
+      # already raised. Deterministic + free (plain gh, no model tokens spent
+      # discovering them). Written to a file the review step reads.
+      - name: Collect existing review comments
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          {
+            echo "# Prior comments already on PR #${PR}"
+            echo
+            echo "## Top-level (issue) comments"
+            gh pr view "$PR" --repo "$REPO" \
+              --json comments \
+              --jq '.comments[] | "### @\(.author.login) (\(.createdAt))\n\(.body)\n"' \
+              || echo "_none_"
+            echo
+            echo "## Inline review comments"
+            gh api "repos/${REPO}/pulls/${PR}/comments" --paginate \
+              --jq '.[] | "### @\(.user.login) — \(.path):\(.line // .original_line)\n\(.body)\n"' \
+              || echo "_none_"
+          } > "${RUNNER_TEMP}/prior-review-comments.md"
+          echo "PRIOR_COMMENTS_FILE=${RUNNER_TEMP}/prior-review-comments.md" >> "$GITHUB_ENV"
+          echo "Collected $(wc -l < "${RUNNER_TEMP}/prior-review-comments.md") lines of prior comments."
+
+      - name: Claude review
+        uses: anthropics/claude-code-action@v1
+        with:
+          # Subscription auth — spends Claude Code (Max/Pro) tokens, not API credits.
+          # Generate once with `claude setup-token` and store as a repo secret.
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Bounded turns keep token spend predictable; review-only, no build/test.
+          claude_args: "--max-turns 25"
+          prompt: |
+            /pr-review --base ${{ github.event.pull_request.base.ref }}
+
+            CI run notes (read before starting):
+            - You are running headless in GitHub Actions on the checked-out PR
+              head, reviewing PR #${{ github.event.pull_request.number }} in
+              ${{ github.repository }}. Review the current branch diff vs the base
+              passed above. Get the diff with
+              `git diff origin/${{ github.event.pull_request.base.ref }}...HEAD`.
+            - DEDUPE AGAINST PRIOR COMMENTS: first read the file at
+              `${{ env.PRIOR_COMMENTS_FILE }}` — it holds every comment already on
+              this PR (yours from earlier pushes, and human reviewers'). Do NOT
+              repeat a finding that is already covered there. Only report findings
+              that are NEW since those comments (new code from the latest push, or
+              issues nobody has raised yet). If every issue is already covered and
+              the diff introduces nothing new, say so in one line and post no
+              duplicate findings.
+            - `uv` and `rtk` do NOT exist here. SKIP the skill's scoped
+              `uv run ruff` / `uv run mypy` / `rtk` verification steps entirely —
+              review from the diff and `.claude/rules/*.md` only.
+            - Do NOT run pytest / the CI gate — the `ci` workflow owns those.
+            - Your final message is posted to the PR automatically. Output ONLY the
+              ranked findings LIST + one-line approval verdict, exactly as the
+              skill's Output Format specifies (a LIST, never a table) — no preamble,
+              no restating the diff, no praise.
