@@ -4,8 +4,11 @@ import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.user import User
 from app.repositories.stat_repo import StatRepository
+from app.repositories.user_repo import UserRepository
 from app.repositories.user_stat_repo import UserStatRepository
+from app.schemas.auth import UserPublic
 from app.schemas.user import StatOut, UserStatOut
 from app.services.leveling import LevelingService
 
@@ -15,6 +18,12 @@ class UserService:
         self.session = session
         self.stats = StatRepository(session)
         self.user_stats = UserStatRepository(session)
+        self.users = UserRepository(session)
+
+    async def complete_onboarding(self, user: User) -> UserPublic:
+        await self.users.set_onboarding_completed(user)
+        await self.session.commit()
+        return UserPublic.model_validate(user)
 
     async def initialize_user_stats(self, user_id: uuid.UUID) -> None:
         """Create one UserStat row per seeded Stat for the new user."""

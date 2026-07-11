@@ -40,3 +40,8 @@ class UserRepository:
         self.session.add(user)
         await self.session.flush()
         return user
+
+    async def set_onboarding_completed(self, user: User) -> User:
+        user.onboarding_completed = True
+        await self.session.flush()
+        return user

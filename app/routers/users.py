@@ -17,6 +17,11 @@ async def get_me(current: CurrentUser) -> UserPublic:
     return UserPublic.model_validate(current)
 
 
+@router.post("/me/complete-onboarding", response_model=UserPublic)
+async def complete_onboarding(current: CurrentUser, service: UserServiceDep) -> UserPublic:
+    return await service.complete_onboarding(current)
+
+
 @router.get("/me/stats", response_model=list[UserStatOut])
 async def get_my_stats(current: CurrentUser, service: UserServiceDep) -> list[UserStatOut]:
     return await service.get_stats(current.id)

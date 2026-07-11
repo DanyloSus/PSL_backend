@@ -33,6 +33,9 @@ class User(Base):
     global_xp: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     global_level: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    onboarding_completed: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false", default=False
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
