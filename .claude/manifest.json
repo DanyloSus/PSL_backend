@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": "1.0.0",
+  "lastUpdated": "2026-07-11",
+  "description": "Registry of all AI knowledge artifacts for PSL Backend. Used by the harness to discover and load rules, skills, agents, protocols, and engine scenarios. Facade router: .claude/FACADE.md.",
+
+  "rules": [
+    { "id": "layer-architecture", "path": "rules/layer-architecture.md", "tier": 0, "enforcement": "strict", "summary": "router → service → repository → SQLAlchemy; no SQL in routers/services; thin 1-line routers; DomainError subclasses over raw HTTPException." },
+    { "id": "code-style", "path": "rules/code-style.md", "tier": 0, "enforcement": "strict", "summary": "ruff lint+format; snake_case; all IO async (async with); spell out locals; NO code comments unless asked." },
+    { "id": "imports", "path": "rules/imports.md", "tier": 0, "enforcement": "strict", "summary": "no cross-layer imports (repos don't import services/routers); ruff-ordered absolute imports from app.*." },
+    { "id": "typing", "path": "rules/typing.md", "tier": 0, "enforcement": "strict", "summary": "mypy on app/; type hints on all defs; SQLAlchemy 2.0 Mapped[] style; avoid Any." },
+    { "id": "naming", "path": "rules/naming.md", "tier": 0, "enforcement": "strict", "summary": "files snake_case; routes kebab-case; classes PascalCase; UUID PKs + created/updated_at; schemas *Create/*Update/*Out." },
+    { "id": "schemas", "path": "rules/schemas.md", "tier": 1, "enforcement": "strict", "summary": "pydantic v2 separate *Create/*Update/*Out; never reuse ORM models for API IO; validation/bounds in schemas." },
+    { "id": "migrations", "path": "rules/migrations.md", "tier": 1, "enforcement": "strict", "summary": "alembic autogenerate → 0006_<slug>.py → set revision/down_revision → import model in __init__; op.bulk_insert seeds; never edit merged; Postgres-only." },
+    { "id": "testing", "path": "rules/testing.md", "tier": 1, "enforcement": "strict", "summary": "pytest + httpx.AsyncClient; client/auth_client/admin_client fixtures; per-test TRUNCATE + Redis FLUSHDB; usernames ≥3; tests in app/tests/." },
+    { "id": "domain-xp", "path": "rules/domain-xp.md", "tier": 1, "enforcement": "strict", "summary": "Stat XP ≥ 0, level ≥ 1, never decrease; BINARY forces quantity=1; delta = xp_change*quantity floored at 0; level formula floor(100*(L-1)**1.5)." },
+    { "id": "security-cookies-csrf", "path": "rules/security-cookies-csrf.md", "tier": 1, "enforcement": "strict", "summary": "argon2; JWT HS256 access 15m + opaque refresh 7d (sha256 in DB); CSRF double-submit; SameSite lax local/none+Secure prod; refresh rotation; protected files." },
+    { "id": "caching", "path": "rules/caching.md", "tier": 1, "enforcement": "strict", "summary": "activities:templates 5-min TTL owned by ActivityService.list_templates; ORM event hooks invalidate on template/effect writes; mutate via ORM only." },
+    { "id": "rate-limiting", "path": "rules/rate-limiting.md", "tier": 1, "enforcement": "strict", "summary": "fastapi-limiter==0.1.6 pinned; auth 10 req/60s; POST /activities/log 60 req/60s." },
+    { "id": "file-health", "path": "rules/file-health.md", "tier": 1, "enforcement": "warning", "summary": "single responsibility; split oversized services/repositories; one aggregate per model file." },
+    { "id": "decision-records", "path": "rules/decision-records.md", "tier": 1, "enforcement": "convention", "summary": "record architecture-shaping, hard-to-reverse decisions as ADRs (/adr, docs/adrs/); skip reversible detail; adr_reminder hook nudges." },
+    { "id": "granular-commits", "path": "rules/granular-commits.md", "tier": 1, "enforcement": "convention", "summary": "one logical change per commit; Conventional Commits with scope; each commit builds independently; no Claude/Anthropic trailers." },
+    { "id": "lint-scope", "path": "rules/lint-scope.md", "tier": 1, "enforcement": "convention", "summary": "changed-file-only lint (ruff_fix hook); never run repo-wide lint inside a task phase; CI owns hard enforcement." },
+    { "id": "spec-driven", "path": "rules/spec-driven.md", "tier": 1, "enforcement": "convention", "summary": "OpenSpec requirement grammar FR/NFR/TC/BC-<AREA>-<n>; Verification vocab local-verifiable|migration|manual; tests # @trace <req-id>." }
+  ],
+
+  "skills": [
+    { "id": "fastapi-endpoint", "path": "skills/fastapi-endpoint/SKILL.md", "tier": 1, "triggers": ["endpoint", "router", "route", "api", "FastAPI", "Depends"], "summary": "Thin routers behind /api/v1; one-line delegation to a service; DI via app/core/dependencies.py; DomainError → HTTP global handler." },
+    { "id": "sqlalchemy-repository", "path": "skills/sqlalchemy-repository/SKILL.md", "tier": 1, "triggers": ["repository", "repo", "query", "sqlalchemy", "session", "ORM"], "summary": "Repo classes __init__(self, session: AsyncSession); async select()/scalars(); with_for_update locking; SQL lives only here." },
+    { "id": "alembic-migration", "path": "skills/alembic-migration/SKILL.md", "tier": 1, "triggers": ["migration", "alembic", "revision", "schema change", "upgrade", "downgrade"], "summary": "autogenerate → 0006_<slug>.py → set revision/down_revision → import model in __init__; op.bulk_insert seeds; never edit merged; Postgres-only." },
+    { "id": "pydantic-schemas", "path": "skills/pydantic-schemas/SKILL.md", "tier": 1, "triggers": ["schema", "pydantic", "validation", "request", "response", "DTO"], "summary": "pydantic v2 *Create/*Update/*Out; never reuse ORM models; field validation + bounds; from_attributes for Out." },
+    { "id": "pytest-testcontainers", "path": "skills/pytest-testcontainers/SKILL.md", "tier": 1, "triggers": ["test", "pytest", "testcontainers", "fixture", "coverage", "async test"], "summary": "client/auth_client/admin_client fixtures; httpx.AsyncClient over ASGITransport; per-test TRUNCATE + FLUSHDB; TEST_DATABASE_URL override; tests in app/tests/." },
+    { "id": "domain-leveling", "path": "skills/domain-leveling/SKILL.md", "tier": 1, "triggers": ["xp", "level", "leveling", "stat", "activity log", "quantity"], "summary": "LevelingService formulas; XP≥0, level≥1, never drop; delta = xp_change*quantity floored; single transaction per log; BINARY → quantity=1." },
+    { "id": "auth-security", "path": "skills/auth-security/SKILL.md", "tier": 1, "triggers": ["auth", "jwt", "refresh", "csrf", "cookie", "login", "password", "argon2"], "summary": "argon2; JWT HS256 access 15m + opaque refresh 7d; CSRF double-submit; cookie helpers; SameSite lax/none; refresh rotation; protected files." },
+    { "id": "redis-caching", "path": "skills/redis-caching/SKILL.md", "tier": 1, "triggers": ["cache", "redis", "invalidate", "template cache", "rate limit"], "summary": "activities:templates 5-min TTL; ORM event hooks invalidate on template/effect writes; mutate via ORM; fastapi-limiter rate limits." },
+    { "id": "code-quality", "path": "skills/code-quality/SKILL.md", "tier": 1, "triggers": ["quality", "lint", "ruff", "mypy", "format", "review"], "summary": "uv run ruff check/format; mypy app; pytest -q; changed-file-only lint in tasks; pre-commit." },
+    { "id": "pipeline-orchestration", "path": "skills/pipeline-orchestration/SKILL.md", "tier": 2, "triggers": ["pipeline", "scenario", "engine", "DAG", "batch", "orchestrate"], "summary": "How to use .claude/engine nodes + scenarios; compose with a gate before writes; session-log first+last; spawn sub-agents." },
+    { "id": "self-expansion", "path": "skills/self-expansion/SKILL.md", "tier": 2, "triggers": ["new skill", "new rule", "new agent", "expand", "add artifact"], "summary": "Add rules/skills/agents/scenarios from templates; register in manifest.json; check for existing artifact first; user approval." },
+    { "id": "git-branch", "path": "skills/git-branch/SKILL.md", "tier": 1, "triggers": ["branch", "new branch", "stacking", "stacked PR"], "summary": "Branch naming + stacked-PR conventions for PSL." },
+    { "id": "git-commit", "path": "skills/git-commit/SKILL.md", "tier": 1, "triggers": ["commit", "conventional commit"], "summary": "Conventional Commit generator: analyzes staged diff, picks type+scope." },
+    { "id": "git-commit-push", "path": "skills/git-commit-push/SKILL.md", "tier": 1, "triggers": ["commit and push", "push"], "summary": "Stage, commit, and push granular Conventional Commits." },
+    { "id": "git-squash", "path": "skills/git-squash/SKILL.md", "tier": 1, "triggers": ["squash", "compress commits"], "summary": "Branch squash workflow." },
+    { "id": "pull-request-description", "path": "skills/pull-request-description/SKILL.md", "tier": 1, "triggers": ["PR", "pull request", "MR"], "summary": "Generate a PR from the branch diff using pull_request_template.md; stacking-aware." },
+    { "id": "grill-me", "path": "skills/grill-me/SKILL.md", "tier": 2, "triggers": ["grill me", "stress-test plan", "interrogate design"], "summary": "Interview one question at a time until shared understanding of a plan/design." },
+    { "id": "improve-codebase-architecture", "path": "skills/improve-codebase-architecture/SKILL.md", "tier": 2, "triggers": ["improve architecture", "refactor opportunities", "deepen modules"], "summary": "Surface architectural friction and propose deepening refactors, informed by PRD/TDD/ADRs." },
+    { "id": "worktree-task", "path": "skills/worktree-task/SKILL.md", "tier": 2, "triggers": ["worktree", "isolated task"], "summary": "Spin up an isolated git worktree, implement, commit, push, open a PR." },
+    { "id": "worktree-close", "path": "skills/worktree-close/SKILL.md", "tier": 2, "triggers": ["close worktree"], "summary": "Close a worktree and check its branch out in the main repo." },
+    { "id": "openspec-propose", "path": "skills/openspec-propose/SKILL.md", "tier": 2, "triggers": ["propose change", "opsx propose", "new spec"], "summary": "Propose a new OpenSpec change with all artifacts in one step." },
+    { "id": "openspec-apply-change", "path": "skills/openspec-apply-change/SKILL.md", "tier": 2, "triggers": ["apply change", "implement change", "opsx apply"], "summary": "Implement tasks from an OpenSpec change." },
+    { "id": "openspec-archive-change", "path": "skills/openspec-archive-change/SKILL.md", "tier": 2, "triggers": ["archive change", "opsx archive"], "summary": "Archive a completed change and fold specs into baseline." },
+    { "id": "openspec-explore", "path": "skills/openspec-explore/SKILL.md", "tier": 2, "triggers": ["explore", "think through", "opsx explore"], "summary": "Explore mode — think through ideas/requirements before a change." },
+    { "id": "openspec-sync-specs", "path": "skills/openspec-sync-specs/SKILL.md", "tier": 2, "triggers": ["sync specs", "opsx sync"], "summary": "Sync delta specs from a change into main specs." }
+  ],
+
+  "commands": [
+    { "id": "adr", "path": "commands/adr.md", "summary": "Record an ADR under docs/adrs/ for a hard-to-reverse decision." },
+    { "id": "code-review", "path": "commands/code-review.md", "summary": "Review the current diff via the code-review engine scenario (parallel code-reviewer + architecture-auditor)." },
+    { "id": "sprint", "path": "commands/sprint.md", "summary": "Walk a feature/fix through Think → Plan → Build → Review → Test → Ship → Reflect with gates." },
+    { "id": "opsx:propose", "path": "commands/opsx/propose.md", "summary": "OpenSpec: propose a change and generate all artifacts." },
+    { "id": "opsx:apply", "path": "commands/opsx/apply.md", "summary": "OpenSpec: implement tasks from a change." },
+    { "id": "opsx:archive", "path": "commands/opsx/archive.md", "summary": "OpenSpec: archive a completed change." },
+    { "id": "opsx:explore", "path": "commands/opsx/explore.md", "summary": "OpenSpec: explore mode." },
+    { "id": "opsx:sync", "path": "commands/opsx/sync.md", "summary": "OpenSpec: sync delta specs into baseline." }
+  ],
+
+  "agents": [
+    { "id": "code-reviewer", "path": "agents/code-reviewer.md", "scope": "read-only", "summary": "Reviews changed code against PSL rules; runs ruff + mypy on the diff; reports a findings table. Never edits." },
+    { "id": "architecture-auditor", "path": "agents/architecture-auditor.md", "scope": "read-only", "summary": "Audits layer boundaries + coupling; flags SQL in services/routers, cross-layer imports, fat routers." },
+    { "id": "test-writer", "path": "agents/test-writer.md", "scope": "read-src-write-test", "summary": "Writes pytest tests using client/auth_client/admin_client fixtures; runs pytest on what it wrote." },
+    { "id": "docs-keeper", "path": "agents/docs-keeper.md", "scope": "write-docs", "summary": "Keeps CLAUDE.md/AGENTS.md/.claude docs/ADRs accurate; never touches app/ source." },
+    { "id": "spec-compliance-auditor", "path": "agents/spec-compliance-auditor.md", "scope": "read-only", "summary": "Checks code against PRD/TDD and OpenSpec specs; verifies requirement IDs are traced by tests." },
+    { "id": "ai-skill-creator", "path": "agents/ai-skill-creator.md", "scope": "write-ai", "summary": "Creates/updates .claude rules/skills/agents from templates and registers them in manifest.json." },
+    { "id": "migration-writer", "path": "agents/migration-writer.md", "scope": "write-migrations", "summary": "Writes Alembic migrations per migrations.md; verifies reversibility with upgrade/downgrade." }
+  ],
+
+  "protocols": [
+    { "id": "self-verification", "path": "protocols/self-verification.md", "summary": "Three scopes (quick/standard/full) for post-task verification with ruff/mypy/pytest." },
+    { "id": "agent-orchestration", "path": "protocols/agent-orchestration.md", "summary": "When/how to spawn sub-agents; parallel vs sequential; scope passing; engine spawn mapping." },
+    { "id": "self-expansion", "path": "protocols/self-expansion.md", "summary": "Template-based creation of new rules/skills/agents/scenarios; register + approve." },
+    { "id": "learn-capture", "path": "protocols/learn-capture.md", "summary": "Capture durable lessons post-task → CLAUDE.md/AGENTS.md/ADR/rule; skip if nothing durable." },
+    { "id": "token-budget", "path": "protocols/token-budget.md", "summary": "Tier system + budgets; load summary before full skill; keep BOOTSTRAP compact." }
+  ],
+
+  "templates": [
+    { "id": "rule-template", "path": "templates/_RULE_TEMPLATE.md" },
+    { "id": "skill-template", "path": "templates/_SKILL_TEMPLATE.md" },
+    { "id": "agent-template", "path": "templates/_AGENT_TEMPLATE.md" },
+    { "id": "scenario-template", "path": "engine/_SCENARIO_TEMPLATE.md" }
+  ],
+
+  "docs": [
+    { "id": "prd", "path": "docs/PRD.md", "summary": "Product requirements — source of truth (do not edit unless asked)." },
+    { "id": "tdd", "path": "docs/TDD.md", "summary": "Technical description — source of truth (do not edit unless asked)." },
+    { "id": "adrs", "path": "docs/adrs/", "summary": "Architecture Decision Records (why). Add via /adr." }
+  ],
+
+  "engine": {
+    "registry": "engine/registry.json",
+    "nodeCatalog": "engine/_NODE_CATALOG.md",
+    "scenarios": ["feature-scaffold", "batch-test-creation", "code-review", "refactor-extract", "batch-fix-pattern"]
+  }
+}

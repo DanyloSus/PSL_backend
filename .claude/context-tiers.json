@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Token optimization tiers. Controls what gets loaded into AI agent context and when.",
+
+  "tiers": {
+    "0": {
+      "label": "Always loaded",
+      "maxLines": 500,
+      "description": "Loaded into every agent session automatically. Must stay compact.",
+      "files": [".claude/BOOTSTRAP.md"],
+      "rules": ["layer-architecture", "code-style", "imports", "typing", "naming"]
+    },
+    "1": {
+      "label": "Trigger-loaded",
+      "description": "Loaded when task matches trigger keywords in manifest.json. Read summary first; load full SKILL.md only if needed.",
+      "maxSkillsPerTask": 5,
+      "rules": [
+        "schemas",
+        "migrations",
+        "testing",
+        "domain-xp",
+        "security-cookies-csrf",
+        "caching",
+        "rate-limiting",
+        "file-health",
+        "decision-records",
+        "granular-commits",
+        "lint-scope",
+        "spec-driven"
+      ],
+      "skills": "Matched via manifest.json triggers field"
+    },
+    "2": {
+      "label": "On-demand",
+      "description": "Loaded only when explicitly requested by user or protocol. Reference docs, agent personas, protocols.",
+      "includes": ["agents/*", "protocols/*", "templates/*"]
+    }
+  },
+
+  "budgets": {
+    "simple": {
+      "description": "Single-file edit, small fix, quick question",
+      "maxSkills": 2,
+      "maxRules": 3,
+      "loadStrategy": "summary-only unless skill directly relevant"
+    },
+    "feature": {
+      "description": "New feature, multi-file changes, refactoring",
+      "maxSkills": 5,
+      "maxRules": "all-matching",
+      "loadStrategy": "full-skill for primary, summary for secondary"
+    },
+    "audit": {
+      "description": "Code review, quality audit, full compliance check",
+      "maxSkills": "all",
+      "maxRules": "all",
+      "loadStrategy": "full-load permitted"
+    }
+  },
+
+  "loadingProtocol": {
+    "steps": [
+      "1. Agent reads BOOTSTRAP.md (always — tier 0)",
+      "2. Agent identifies task type → selects budget (simple/feature/audit)",
+      "3. Agent matches task keywords against manifest.json triggers",
+      "4. Agent reads manifest summary for matched skills (5-line digest)",
+      "5. Agent reads full SKILL.md only for directly relevant skills",
+      "6. Agent loads tier-0 rules always; tier-1 rules if task touches that area",
+      "7. Protocols/agents loaded only when orchestration or self-expansion needed"
+    ]
+  }
+}
