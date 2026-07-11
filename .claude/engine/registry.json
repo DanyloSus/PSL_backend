@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": "1.0.0",
+  "description": "DAG Pipeline Engine registry for PSL Backend. Maps triggers to scenarios and catalogs available nodes.",
+
+  "nodes": [
+    { "id": "discover", "type": "input", "cost": 80, "cacheable": true, "path": "engine/nodes/discover.md" },
+    { "id": "extract", "type": "process", "cost": 60, "cacheable": true, "path": "engine/nodes/extract.md" },
+    { "id": "skill-load", "type": "input", "cost": 100, "cacheable": true, "path": "engine/nodes/skill-load.md" },
+    { "id": "partition", "type": "process", "cost": 40, "cacheable": false, "path": "engine/nodes/partition.md" },
+    { "id": "spawn", "type": "process", "cost": 120, "cacheable": false, "path": "engine/nodes/spawn.md" },
+    { "id": "verify", "type": "process", "cost": 80, "cacheable": false, "path": "engine/nodes/verify.md" },
+    { "id": "fix", "type": "process", "cost": 100, "cacheable": false, "path": "engine/nodes/fix.md" },
+    { "id": "gate", "type": "gate", "cost": 20, "cacheable": false, "path": "engine/nodes/gate.md" },
+    { "id": "merge", "type": "output", "cost": 40, "cacheable": false, "path": "engine/nodes/merge.md" },
+    { "id": "transform", "type": "process", "cost": 60, "cacheable": true, "path": "engine/nodes/transform.md" },
+    { "id": "session-log", "type": "process", "cost": 10, "cacheable": false, "path": "engine/nodes/session-log.md" }
+  ],
+
+  "scenarios": [
+    {
+      "id": "feature-scaffold",
+      "path": "engine/scenarios/feature-scaffold.md",
+      "triggers": ["new aggregate", "scaffold module", "new feature", "create feature", "scaffold feature", "new resource"],
+      "nodes_used": ["session-log", "skill-load", "gate", "transform", "verify"],
+      "verified": false
+    },
+    {
+      "id": "batch-test-creation",
+      "path": "engine/scenarios/batch-test-creation.md",
+      "triggers": ["batch test", "test multiple", "coverage for", "write tests for", "tests for"],
+      "nodes_used": ["session-log", "discover", "extract", "skill-load", "partition", "spawn", "merge", "verify", "fix"],
+      "verified": false
+    },
+    {
+      "id": "code-review",
+      "path": "engine/scenarios/code-review.md",
+      "triggers": ["review", "code review", "audit", "check quality"],
+      "nodes_used": ["session-log", "discover", "extract", "partition", "spawn", "merge", "transform"],
+      "verified": false
+    },
+    {
+      "id": "refactor-extract",
+      "path": "engine/scenarios/refactor-extract.md",
+      "triggers": ["refactor", "extract service", "extract repository", "split file", "SRP"],
+      "nodes_used": ["session-log", "discover", "extract", "skill-load", "gate", "transform", "verify"],
+      "verified": false
+    },
+    {
+      "id": "batch-fix-pattern",
+      "path": "engine/scenarios/batch-fix-pattern.md",
+      "triggers": ["fix pattern", "replace across", "batch fix", "fix all"],
+      "nodes_used": ["session-log", "discover", "extract", "gate", "partition", "fix", "merge", "verify"],
+      "verified": false
+    }
+  ],
+
+  "selfExpansion": {
+    "enabled": true,
+    "userApprovalRequired": true,
+    "templatePath": "engine/_SCENARIO_TEMPLATE.md",
+    "compositionRules": [
+      "New scenarios MUST include 'session-log' as FIRST and LAST node",
+      "New scenarios MUST include a 'gate' node before any write/spawn operations",
+      "Reuse existing nodes — do NOT create inline operations",
+      "Budget must be declared in metadata",
+      "Set 'verified: false' until scenario executes successfully once"
+    ]
+  }
+}
