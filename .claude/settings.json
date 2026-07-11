@@ -1,0 +1,49 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(git push --force*)",
+      "Bash(git push -f *)",
+      "Bash(git push -f)",
+      "Bash(git push*--force-with-lease*)",
+      "Bash(git push*origin main*)",
+      "Bash(gh repo edit*)",
+      "Bash(gh api*rulesets*--method PUT*)",
+      "Bash(gh api*rulesets*--method DELETE*)",
+      "Bash(gh api*rulesets*--method PATCH*)"
+    ]
+  },
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "python3 .claude/scripts/ci_guard.py", "timeout": 5000 },
+          { "type": "command", "command": "python3 .claude/scripts/branch_name_guard.py", "timeout": 5000 },
+          { "type": "command", "command": "python3 .claude/scripts/adr_reminder.py", "timeout": 5000 }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [{ "type": "command", "command": "python3 .claude/scripts/protected_paths.py", "timeout": 5000 }]
+      },
+      {
+        "matcher": "Read|Grep",
+        "hooks": [{ "type": "command", "command": "python3 .claude/scripts/block_env_read.py", "timeout": 5000 }]
+      },
+      {
+        "matcher": "Read|Edit|Write|Glob|Grep|NotebookEdit",
+        "hooks": [{ "type": "command", "command": "python3 .claude/scripts/agents_md_loader.py", "timeout": 3000 }]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [{ "type": "command", "command": "python3 .claude/scripts/ruff_fix.py", "timeout": 15000 }]
+      }
+    ]
+  }
+}
