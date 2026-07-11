@@ -1,6 +1,6 @@
 ---
 name: address-pr-review
-description: Close the loop on the Claude PR review — read the bot's findings on a PR, fix the blockers and majors, push, wait for the re-review, and repeat until the approval verdict is clean. Auto-fixes B* and M* findings only; lists N* nits for the author; pauses when a finding conflicts with the OpenSpec spec/proposal (the spec is source of truth) or touches an AGENTS §4a protected file. Bounded round cap prevents ping-pong. Used as the final phase of /opsx:apply, and standalone when a PR has review comments to resolve.
+description: Close the loop on the Claude PR review — each round derive the open findings from a fresh, non-deduped /pr-review on the current diff (plus any new human comments), fix the blockers and majors, commit granularly, and push, repeating until a fresh /pr-review shows 0 blockers + 0 majors. Never trust the deduped CI comment to decide "clean" (it suppresses still-open findings). Auto-fixes B* and M* findings only; lists N* nits for the author; pauses when a finding conflicts with the OpenSpec spec/proposal (the spec is source of truth) or touches an AGENTS §4a protected file. Bounded round cap prevents ping-pong. Used as the final phase of /opsx:apply, and standalone when a PR has review comments to resolve.
 metadata:
   version: "1.0"
   stack: python-fastapi
@@ -21,16 +21,19 @@ triggers:
   - address review
   - review fix loop
 summary: |
-  Drive the PR review to green. Read the newest `claude[bot]` review comment on
-  a PR, parse its findings (ID · severity · rule · file:line · reframe), and
-  auto-fix only Blockers (B*) and Majors (M*). Commit granularly (Conventional
-  Commits), push — which fires the `synchronize` re-review that dedupes against
-  prior comments — then poll the new run and read the fresh verdict. Loop until
-  0 blockers + 0 majors or the round cap (default 3) is hit. Leave N* nits for
-  the author. PAUSE, never blindly fix, when a finding contradicts the OpenSpec
-  proposal/spec (source of truth — update the artifact instead) or targets an
-  AGENTS §4a protected file. Read-the-diff-first: verify each finding is real
-  before changing code. Standalone or as the last phase of /opsx:apply.
+  Drive the PR review to green. Each round, derive the authoritative open
+  findings from a FRESH, non-deduped `/pr-review` on the current branch diff
+  (plus any new human review comments) — NOT from the CI `claude[bot]` comment,
+  which dedupes (suppresses still-open findings, so an empty comment never means
+  clean). Auto-fix only Blockers (B*) and Majors (M*); parse ID · severity ·
+  file:line · reframe. Commit granularly (Conventional Commits), push to update
+  the PR, then loop: re-run a fresh `/pr-review`. Terminate when a fresh review
+  shows 0 blockers + 0 majors (and no unaddressed human comment), or the round
+  cap (default 3) is hit. Leave N* nits for the author. PAUSE, never blindly
+  fix, when a finding contradicts the OpenSpec proposal/spec (source of truth —
+  update the artifact instead) or targets an AGENTS §4a protected file.
+  Read-the-diff-first: verify each finding is real. Standalone or last phase of
+  /opsx:apply.
 ---
 
 # Address PR Review (fix loop)
@@ -144,7 +147,6 @@ Auto-fix + re-review can ping-pong (a fix introduces a new finding). The cap bou
 | Not confirming the finding first | Read the cited file:line; the review can be wrong — skip false positives |
 | Infinite loop | Cap at 3 rounds; escalate surviving blockers |
 | Trusting the deduped CI comment to decide "clean" | Re-derive open findings with a **fresh** `/pr-review` each round; the CI comment suppresses still-open findings |
-| Reading an old review comment | Take the **newest** `claude[bot]` comment — the re-review already deduped |
 | Running the full pytest suite each round | Changed-file ruff + mypy only; CI runs the suite |
 
 ## Checklist

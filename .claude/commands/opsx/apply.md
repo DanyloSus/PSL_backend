@@ -92,7 +92,7 @@ Implement tasks from an OpenSpec change.
 
    1. **Ensure a feature branch.** If work is on `main`, stop — it should already be on a `<type>/<kebab>` branch (see `git-branch`). Commit any remaining task work granularly (Conventional Commits, `git-commit`).
    2. **Open the PR** (if not already open) using the `pull-request-description` skill — PSL `pull_request_template.md`, base `main` (or the parent branch when stacked), assignee `DanyloSus`. Opening it fires the **Claude PR Review** workflow.
-   3. **Run the review-fix loop** via the `address-pr-review` skill: wait for the review run, read the newest `claude[bot]` findings, **auto-fix Blockers (`B*`) and Majors (`M*`) only**, commit granularly, push (which fires the deduping re-review), and repeat until **0 blockers + 0 majors** or the 3-round cap.
+   3. **Run the review-fix loop** via the `address-pr-review` skill: each round derive the open findings from a **fresh, non-deduped `/pr-review`** on the current diff (plus any new human review comments) — not from the deduped CI `claude[bot]` comment, which suppresses still-open findings — **auto-fix Blockers (`B*`) and Majors (`M*`) only**, commit granularly, push, and repeat until a fresh `/pr-review` shows **0 blockers + 0 majors** or the 3-round cap.
    4. **Respect the spec.** If a review finding contradicts this change's proposal/spec (the source of truth), do **not** blindly fix it — pause, surface the conflict, and offer to update the OpenSpec artifact instead (same guardrail as step 6's "implementation reveals a design issue"). Never auto-edit an AGENTS §4a protected file — flag it for sign-off.
    5. **Leave nits.** `N*` findings are listed for the author, not auto-fixed.
 
