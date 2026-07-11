@@ -121,6 +121,8 @@ class ActivityLog(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now(), index=True
     )
 
+    template: Mapped[ActivityTemplate] = relationship(lazy="selectin")
+
     effects_applied: Mapped[list[ActivityLogEffect]] = relationship(
         back_populates="log",
         cascade="all, delete-orphan",
@@ -147,3 +149,4 @@ class ActivityLogEffect(Base):
     xp_applied: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     log: Mapped[ActivityLog] = relationship(back_populates="effects_applied")
+    stat: Mapped[Stat] = relationship(lazy="selectin")

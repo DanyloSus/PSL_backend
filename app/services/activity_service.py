@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import (
+    LogNotFoundError,
     QuantityOutOfRangeError,
     TemplateDisabledError,
     TemplateNotFoundError,
@@ -24,6 +25,7 @@ from app.schemas.activity import (
     ActivityEffectOut,
     ActivityHistoryEffect,
     ActivityHistoryEntry,
+    ActivityHistoryPage,
     ActivityTemplateOut,
     AppliedEffect,
     LogActivityRequest,
@@ -112,6 +114,7 @@ class ActivityService:
             total_applied += actual_delta
             effects_for_log.append((effect.stat_id, actual_delta))
 
+            stat_progress = LevelingService.progress(new_xp)
             applied_out.append(
                 AppliedEffect(
                     stat=StatOut.model_validate(stats_by_id[effect.stat_id]),
@@ -119,6 +122,10 @@ class ActivityService:
                     xp=new_xp,
                     level=new_level,
                     leveled_up=new_level > old_level,
+                    previous_level=old_level,
+                    levels_gained=new_level - old_level,
+                    xp_into_level=stat_progress.xp_into_level,
+                    xp_for_next=stat_progress.xp_for_next,
                 )
             )
 
@@ -139,6 +146,7 @@ class ActivityService:
 
         await self.session.commit()
 
+        global_progress = LevelingService.progress(new_global_xp)
         return LogActivityResponse(
             log_id=log.id,
             total_xp_applied=total_applied,
@@ -146,6 +154,10 @@ class ActivityService:
             global_xp=user.global_xp,
             global_level=user.global_level,
             global_leveled_up=new_global_level > old_global_level,
+            previous_global_level=old_global_level,
+            global_levels_gained=new_global_level - old_global_level,
+            xp_into_level=global_progress.xp_into_level,
+            xp_for_next=global_progress.xp_for_next,
         )
 
     async def get_history(
@@ -154,22 +166,70 @@ class ActivityService:
         *,
         limit: int = 20,
         before: datetime | None = None,
-    ) -> list[ActivityHistoryEntry]:
-        logs = await self.logs.list_for_user(user_id, limit=limit, before=before)
-        return [
+        template_id: uuid.UUID | None = None,
+        from_: datetime | None = None,
+        to: datetime | None = None,
+    ) -> ActivityHistoryPage:
+        rows = await self.logs.list_for_user(
+            user_id,
+            limit=limit + 1,
+            before=before,
+            template_id=template_id,
+            from_=from_,
+            to=to,
+        )
+        has_more = len(rows) > limit
+        page_rows = rows[:limit]
+        total = await self.logs.count_for_user(user_id, template_id=template_id, from_=from_, to=to)
+        items = [
             ActivityHistoryEntry(
                 id=log.id,
                 activity_template_id=log.template_id,
+                title=log.template.title,
+                description=log.template.description,
+                input_type=log.template.input_type,
                 quantity=log.quantity,
                 total_xp_applied=log.total_xp_applied,
                 created_at=log.created_at,
                 effects=[
-                    ActivityHistoryEffect(stat_id=e.stat_id, xp_applied=e.xp_applied)
-                    for e in log.effects_applied
+                    ActivityHistoryEffect(
+                        stat_id=effect.stat_id,
+                        xp_applied=effect.xp_applied,
+                        key=effect.stat.key,
+                        display_name=effect.stat.display_name,
+                        icon=effect.stat.icon,
+                    )
+                    for effect in log.effects_applied
                 ],
             )
-            for log in logs
+            for log in page_rows
         ]
+        next_before = page_rows[-1].created_at if has_more and page_rows else None
+        return ActivityHistoryPage(
+            items=items,
+            total=total,
+            has_more=has_more,
+            next_before=next_before,
+        )
+
+    async def delete_log(self, user: User, log_id: uuid.UUID) -> None:
+        log = await self.logs.get_owned(user.id, log_id)
+        if log is None:
+            raise LogNotFoundError
+
+        for effect in log.effects_applied:
+            user_stat = await self.user_stats.get_for_update(user.id, effect.stat_id)
+            if user_stat is None:
+                continue
+            user_stat.xp = max(0, user_stat.xp - effect.xp_applied)
+            recomputed = LevelingService.level_from_xp(user_stat.xp)
+            user_stat.level = max(user_stat.level, recomputed)
+
+        user.global_xp = max(0, user.global_xp - log.total_xp_applied)
+        user.global_level = max(user.global_level, LevelingService.level_from_xp(user.global_xp))
+
+        await self.logs.delete(log)
+        await self.session.commit()
 
     @staticmethod
     def _template_out(template: object) -> ActivityTemplateOut:

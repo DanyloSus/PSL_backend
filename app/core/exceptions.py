@@ -51,3 +51,8 @@ class TemplateDisabledError(DomainError):
 class QuantityOutOfRangeError(DomainError):
     status_code = 422
     detail = "quantity out of range"
+
+
+class LogNotFoundError(DomainError):
+    status_code = 404
+    detail = "activity log not found"

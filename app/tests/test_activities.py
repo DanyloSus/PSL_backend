@@ -104,10 +104,11 @@ async def test_activity_history_records_log(auth_client: AsyncClient) -> None:
     r = await auth_client.get("/api/v1/users/me/activity-history")
     assert r.status_code == 200
     data = r.json()
-    assert len(data) == 1
-    assert data[0]["quantity"] == 1
-    assert data[0]["total_xp_applied"] == 15  # 10+3+2
-    assert len(data[0]["effects"]) == 3
+    assert data["total"] == 1
+    assert len(data["items"]) == 1
+    assert data["items"][0]["quantity"] == 1
+    assert data["items"][0]["total_xp_applied"] == 15  # 10+3+2
+    assert len(data["items"][0]["effects"]) == 3
 
 
 async def test_list_activities_exposes_quantity_bounds(auth_client: AsyncClient) -> None:

@@ -42,6 +42,10 @@ class AppliedEffect(BaseModel):
     xp: int
     level: int
     leveled_up: bool
+    previous_level: int
+    levels_gained: int
+    xp_into_level: int
+    xp_for_next: int
 
 
 class LogActivityResponse(BaseModel):
@@ -51,17 +55,34 @@ class LogActivityResponse(BaseModel):
     global_xp: int
     global_level: int
     global_leveled_up: bool
+    previous_global_level: int
+    global_levels_gained: int
+    xp_into_level: int
+    xp_for_next: int
 
 
 class ActivityHistoryEffect(BaseModel):
     stat_id: uuid.UUID
     xp_applied: int
+    key: str
+    display_name: str
+    icon: str
 
 
 class ActivityHistoryEntry(BaseModel):
     id: uuid.UUID
     activity_template_id: uuid.UUID
+    title: str
+    description: str
+    input_type: ActivityInputType
     quantity: int
     total_xp_applied: int
     created_at: datetime
     effects: list[ActivityHistoryEffect]
+
+
+class ActivityHistoryPage(BaseModel):
+    items: list[ActivityHistoryEntry]
+    total: int
+    has_more: bool
+    next_before: datetime | None
