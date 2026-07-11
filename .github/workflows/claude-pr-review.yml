@@ -62,8 +62,15 @@ jobs:
           # Subscription auth — spends Claude Code (Max/Pro) tokens, not API credits.
           # Generate once with `claude setup-token` and store as a repo secret.
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # Bounded turns keep token spend predictable; review-only, no build/test.
-          claude_args: "--max-turns 25"
+          # track_progress posts + maintains a sticky PR comment and writes the
+          # final review into it (agent mode does NOT auto-post otherwise).
+          track_progress: true
+          # Allow only what the headless review needs — read the diff/files and
+          # update the tracking comment. No writes, no Task fan-out (denied in the
+          # sandbox anyway — the CI note tells Claude to review both ops inline).
+          claude_args: >-
+            --max-turns 30
+            --allowedTools "Read,Grep,Glob,Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(cat:*),mcp__github_comment__update_claude_comment"
           prompt: |
             /pr-review --base ${{ github.event.pull_request.base.ref }}
 
@@ -73,6 +80,11 @@ jobs:
               ${{ github.repository }}. Review the current branch diff vs the base
               passed above. Get the diff with
               `git diff origin/${{ github.event.pull_request.base.ref }}...HEAD`.
+            - RUN BOTH OPERATIONS INLINE YOURSELF. Do NOT spawn sub-agents / the
+              Task tool — sub-agent fan-out is denied in this sandbox. Perform
+              Operation A (changed files vs .claude/rules/) and Operation B
+              (integration + boundaries, grepping the wider repo) yourself, then
+              merge into the one ranked list the skill's Output Format specifies.
             - DEDUPE AGAINST PRIOR COMMENTS: first read the file at
               `${{ env.PRIOR_COMMENTS_FILE }}` — it holds every comment already on
               this PR (yours from earlier pushes, and human reviewers'). Do NOT
@@ -85,7 +97,7 @@ jobs:
               `uv run ruff` / `uv run mypy` / `rtk` verification steps entirely —
               review from the diff and `.claude/rules/*.md` only.
             - Do NOT run pytest / the CI gate — the `ci` workflow owns those.
-            - Your final message is posted to the PR automatically. Output ONLY the
-              ranked findings LIST + one-line approval verdict, exactly as the
-              skill's Output Format specifies (a LIST, never a table) — no preamble,
-              no restating the diff, no praise.
+            - Write your review into the tracking comment. Output ONLY the ranked
+              findings LIST + one-line approval verdict, exactly as the skill's
+              Output Format specifies (a LIST, never a table) — no preamble, no
+              restating the diff, no praise.
