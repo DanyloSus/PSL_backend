@@ -1,0 +1,34 @@
+schema: spec-driven
+
+context: |
+  PSL Backend — Real-life RPG backend (users log activities → stats gain XP → level up).
+  Python 3.12 + uv · FastAPI behind /api/v1 · SQLAlchemy 2.0 async + Alembic + asyncpg +
+  Postgres 16 · Redis 7 (rate limit + template cache) · argon2 + JWT HS256 + opaque refresh +
+  CSRF double-submit · SQLAdmin at /admin · structlog · pytest + testcontainers.
+  Layered architecture: HTTP router → service → repository → SQLAlchemy. Routers are 1-line
+  wrappers; no SQL in routers/services; all IO async. Full conventions: root AGENTS.md +
+  CLAUDE.md + .claude/rules/*. Source-of-truth specs: docs/PRD.md, docs/TDD.md (do not edit).
+
+  Spec-driven: every requirement carries a stable ID (FR/NFR/TC/BC-<AREA>-<n>) used as the
+  traceability spine — tests reference it via `# @trace <req-id>`, commits `Refs:` it. Every
+  spec declares the GitHub issue it serves via `Parent: #<num>` when one exists. Tests are
+  written from the spec, red first. A change touching an area with no baseline spec
+  reverse-engineers that spec first (retro-spec-on-touch).
+
+rules:
+  spec:
+    - Every requirement has a stable ID (FR/NFR/TC/BC-<AREA>-<n>) as a heading.
+    - Declare `Parent: #<issue>` near the top when a GitHub issue exists.
+    - Every FR/NFR declares `Verification:` from the closed vocab; never invent a method.
+    - Verification vocab — local-verifiable (pytest unit/integration) | migration (alembic up/down) | manual.
+    - Each requirement has at least one `#### Scenario:` in WHEN/THEN form.
+  proposal:
+    - State the parent issue and the requirement IDs this change owns.
+    - Include a "Non-goals" section.
+  design:
+    - Name the layers touched (router / service / repository / model / migration / schema).
+    - Note any new DomainError, migration, cache-invalidation, or rate-limit surface.
+  tasks:
+    - Order sections schema/migration → failing tests (red) → implement (green) → validate/archive.
+    - Test tasks precede implementation tasks; tests carry `# @trace <req-id>`.
+    - The final section runs `uv run ruff check . && uv run mypy app && uv run pytest -q` then archive.
