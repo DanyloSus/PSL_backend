@@ -36,8 +36,12 @@ env/
 .DS_Store
 Thumbs.db
 
-# Claude Code local config
-.claude/
+# Claude Code AI knowledge system — tracked (see .claude/README.md).
+# Only local-only / secret bits are ignored.
+.claude/settings.local.json
+.claude/agent-memory/
+.claude/worktrees/
+.claude/*.lock
 
 # Plans
 *.plan.md
