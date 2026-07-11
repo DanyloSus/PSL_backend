@@ -12,6 +12,22 @@ async def _template(client: AsyncClient, title: str) -> dict[str, object]:
     return dict(matches[0])
 
 
+async def _set_bounds(title: str, *, min_quantity: int, max_quantity: int) -> None:
+    from sqlalchemy import update
+
+    from app.core.db import get_sessionmaker
+    from app.models.activity import ActivityTemplate
+
+    sm = get_sessionmaker()
+    async with sm() as session:
+        await session.execute(
+            update(ActivityTemplate)
+            .where(ActivityTemplate.title == title)
+            .values(min_quantity=min_quantity, max_quantity=max_quantity)
+        )
+        await session.commit()
+
+
 async def test_list_activities_includes_seeded(auth_client: AsyncClient) -> None:
     r = await auth_client.get("/api/v1/activities")
     assert r.status_code == 200
@@ -92,3 +108,40 @@ async def test_activity_history_records_log(auth_client: AsyncClient) -> None:
     assert data[0]["quantity"] == 1
     assert data[0]["total_xp_applied"] == 15  # 10+3+2
     assert len(data[0]["effects"]) == 3
+
+
+async def test_list_activities_exposes_quantity_bounds(auth_client: AsyncClient) -> None:
+    workout = await _template(auth_client, "Workout (gym)")
+    assert workout["min_quantity"] == 1
+    assert workout["max_quantity"] == 100
+
+
+async def test_quantity_above_max_rejected(auth_client: AsyncClient) -> None:
+    workout = await _template(auth_client, "Workout (gym)")
+    r = await auth_client.post(
+        "/api/v1/activities/log",
+        json={"activityTemplateId": workout["id"], "quantity": 101},
+    )
+    assert r.status_code == 422, r.text
+
+
+async def test_quantity_below_min_rejected(auth_client: AsyncClient) -> None:
+    await _set_bounds("Workout (gym)", min_quantity=5, max_quantity=100)
+    workout = await _template(auth_client, "Workout (gym)")
+    r = await auth_client.post(
+        "/api/v1/activities/log",
+        json={"activityTemplateId": workout["id"], "quantity": 2},
+    )
+    assert r.status_code == 422, r.text
+
+
+async def test_binary_ignores_quantity_bounds(auth_client: AsyncClient) -> None:
+    await _set_bounds("Alcohol", min_quantity=1, max_quantity=1)
+    alcohol = await _template(auth_client, "Alcohol")
+    r = await auth_client.post(
+        "/api/v1/activities/log",
+        json={"activityTemplateId": alcohol["id"], "quantity": 99},
+    )
+    assert r.status_code == 200, r.text
+    by_key = {a["stat"]["key"]: a for a in r.json()["applied"]}
+    assert by_key["social_skills"]["xp_applied"] == 3

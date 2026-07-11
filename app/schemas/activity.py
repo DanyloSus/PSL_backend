@@ -22,6 +22,8 @@ class ActivityTemplateOut(BaseModel):
     description: str
     input_type: ActivityInputType
     is_enabled: bool
+    min_quantity: int
+    max_quantity: int
     effects: list[ActivityEffectOut]
 
     model_config = {"from_attributes": True}

@@ -91,6 +91,10 @@ async def clean_user_data() -> AsyncIterator[None]:
         await session.execute(text("TRUNCATE activity_logs RESTART IDENTITY CASCADE"))
         await session.execute(text("TRUNCATE user_stats RESTART IDENTITY CASCADE"))
         await session.execute(text("TRUNCATE users RESTART IDENTITY CASCADE"))
+        # Tests may mutate seeded template quantity bounds; reset to seed defaults.
+        await session.execute(
+            text("UPDATE activity_templates SET min_quantity = 1, max_quantity = 100")
+        )
         await session.commit()
     # Flush Redis (rate limit state + template cache) between tests.
     with contextlib.suppress(Exception):

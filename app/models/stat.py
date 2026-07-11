@@ -16,3 +16,6 @@ class Stat(Base):
     key: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
     display_name: Mapped[str] = mapped_column(String(128), nullable=False)
     icon: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+
+    def __str__(self) -> str:
+        return self.display_name
