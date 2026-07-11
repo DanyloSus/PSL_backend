@@ -25,6 +25,7 @@ class UserPublic(BaseModel):
     role: UserRole
     global_xp: int
     global_level: int
+    onboarding_completed: bool
 
     model_config = {"from_attributes": True}
 
