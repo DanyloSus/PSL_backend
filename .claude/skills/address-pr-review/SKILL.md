@@ -46,12 +46,14 @@ Close the loop opened by the `pr-review` skill / the **Claude PR Review** workfl
 | Goal         | Drive a PR's Claude review to a clean verdict (0 blockers + 0 majors) by fixing B*/M* findings    |
 | When         | A PR has a `claude[bot]` review with blocker/major findings — standalone, or final phase of apply |
 | Scope        | Auto-fix B*/M* only; leave N* nits; pause on spec conflict or §4a protected file                  |
-| Loop         | fix → commit → push → re-review (auto, dedupes) → read verdict → repeat, capped at 3 rounds       |
-| Verification | Changed-file `uv run ruff check` + `uv run mypy app`; the re-review is the acceptance gate        |
+| Loop         | fix → commit → push → re-derive open findings via a **fresh** local `/pr-review` → repeat, capped at 3 rounds |
+| Verification | Changed-file `uv run ruff check` + `uv run mypy app`; a **fresh, non-deduped** `/pr-review` is the acceptance gate |
 
 ## Critical rules
 
 **Fix only Blockers (`B*`) and Majors (`M*`). Read the diff and confirm a finding is real before touching code — the review can be wrong. PAUSE (do not auto-fix) when a finding contradicts the OpenSpec proposal/spec, or targets an AGENTS §4a protected file. Cap the loop at 3 rounds; if blockers survive, stop and report.**
+
+**Never infer "clean" from the absence of findings in the CI PR comment.** The **Claude PR Review** workflow *dedupes* — it suppresses any finding already posted on the PR, fixed or not (see [Why the CI comment is not the authority](#why-the-ci-comment-is-not-the-loops-authority)). An unfixed blocker vanishes from the next comment, so an empty deduped comment does **not** mean the code is clean. Determine what is still open by running a **fresh `/pr-review`** against the current diff each round; that non-deduped list is the loop's sole termination authority.
 
 ## Concepts
 
@@ -66,7 +68,20 @@ Issue — one-sentence problem.
 Reframe — one-sentence fix, naming the target method/repo/schema.
 ```
 
-Severity comes from the ID prefix: **`B`** = blocker, **`M`** = major, **`N`** = nit. The comment ends with `**Approval verdict:** …`. Read the **newest** `claude[bot]` comment — the re-review already dedupes against older ones, so it only lists what is still open plus anything new.
+Severity comes from the ID prefix: **`B`** = blocker, **`M`** = major, **`N`** = nit. The comment ends with `**Approval verdict:** …`. The CI comment is a good **entry point** — it tells you a review ran and shows the first round's findings (and any human review comments) — but it is **not** the loop's termination authority (next).
+
+### Why the CI comment is not the loop's authority
+
+The workflow prompt tells the reviewer to **suppress any finding already present on the PR** ("do not repeat a finding already covered… post nothing when every issue is already covered"). That dedupe keeps the PR readable for humans, but it breaks "absence ⇒ resolved":
+
+```
+round 1: review posts arch-B1 (blocker)
+loop tries to fix it but the fix is wrong / incomplete
+round 2: re-review sees arch-B1 already on the PR → SUPPRESSES it → comment is empty
+loop reads empty comment → "0 blockers" → STOPS  ← WRONG: arch-B1 is still in the code
+```
+
+So the loop derives "what is still open" itself, each round, by running a **fresh `/pr-review`** (full sub-agent review, non-deduped) against the current branch diff. The CI comment stream stays for humans and for surfacing **new human** review comments the loop should also address.
 
 ### What this skill fixes vs skips
 
@@ -86,34 +101,31 @@ Severity comes from the ID prefix: **`B`** = blocker, **`M`** = major, **`N`** =
 Prerequisite: a PR exists for the branch. (In `/opsx:apply`, the apply phase opens it first via `pull-request-description`.)
 
 1. **Locate the PR.** `gh pr view --json number,headRefName,baseRefName` for the current branch, or take an explicit PR number.
-2. **Wait for the review.** The workflow triggers on push/open. Poll the run:
-   ```bash
-   gh run list --repo <owner>/<repo> --workflow=claude-pr-review.yml --limit 1 \
-     --json databaseId,status,conclusion,headSha \
-     --jq '.[] | "\(.databaseId) \(.status) \(.conclusion) \(.headSha[0:7])"'
-   ```
-   Match `headSha` to the branch HEAD; poll `gh run view <id> --json status,conclusion` until `completed`.
-3. **Read the newest review.**
-   ```bash
-   gh api repos/<owner>/<repo>/issues/<pr>/comments --jq '[.[] | select(.user.login=="claude[bot]")] | last | .body'
-   ```
-4. **Parse findings.** Extract each `### <id> · <severity> · …` block with its file:line, Issue, Reframe. Split by severity from the ID prefix. Read the `**Approval verdict:**` line.
-5. **Decide.**
-   - No `B*`/`M*` findings (verdict clean) → **done**. List any `N*` nits for the author, exit.
+2. **Collect the authoritative open findings for this round** — from two sources, merged:
+   - **Fresh `/pr-review`** on the current branch diff (`--base <baseRefName>`). This full, non-deduped sub-agent review is the source of truth for the code's own findings. (Locally this fans out both agents; do not read the CI comment for this.)
+   - **New human review comments** on the PR since the last round — pull them so the loop also honors what a human reviewer asked for:
+     ```bash
+     gh api repos/<owner>/<repo>/pulls/<pr>/comments --jq '.[] | select(.user.login!="claude[bot]") | "\(.path):\(.line) \(.body)"'
+     gh api repos/<owner>/<repo>/issues/<pr>/comments --jq '.[] | select(.user.login!="claude[bot]") | .body'
+     ```
+   (The CI `claude[bot]` comment is a useful entry signal, but its deduped body is **not** used to decide what is still open — see the concept above.)
+3. **Parse findings.** From the fresh review, extract each `### <id> · <severity> · …` block with its file:line, Issue, Reframe; split by severity from the ID prefix. Add any human-requested changes as findings too.
+4. **Decide.**
+   - Fresh review has **0 `B*` + 0 `M*`** and no unaddressed human request → **done**. List any `N*` nits for the author, exit.
    - Round count ≥ cap (3) → **stop**, report surviving blockers, hand back to the author.
    - Otherwise → fix this round.
-6. **Fix B*/M* findings.** For each, in the order the review ranked them:
+5. **Fix B*/M* findings.** For each, in the order the review ranked them:
    - **Read the cited file:line and confirm the finding is real.** If it's a false positive, skip it and record why.
    - If it **conflicts with the OpenSpec proposal/spec** → pause; the spec is source of truth. Surface it and offer to update the artifact instead (mirrors apply's "implementation reveals a design issue" guardrail).
    - If it targets a **§4a protected file** (`app/core/security.py|cookies.py|config.py|db.py|dependencies.py`, `app/main.py`, `app/migrations/**`, `alembic.ini`, `pyproject.toml`, `.pre-commit-config.yaml`, `.github/workflows/**`) → pause, flag for sign-off, do not auto-edit.
    - Otherwise apply the reframing the review proposed, honoring PSL rules (extract to a repository, raise a `DomainError`, add a `*Out` schema, etc.).
-7. **Verify locally.** Changed-file lint only (`lint-scope`): `uv run ruff check <changed>` + `uv run mypy app`. Do not run the full suite here — CI owns it.
-8. **Commit granularly + push.** One logical fix per commit, Conventional Commits with scope (`fix(activities): move template query into repository (arch-B1)`). Reference the finding ID in the body. Push — this fires the `synchronize` re-review, which **dedupes** against the comments already on the PR.
-9. **Loop** back to step 2 for the next round.
+6. **Verify locally.** Changed-file lint only (`lint-scope`): `uv run ruff check <changed>` + `uv run mypy app`. Do not run the full suite here — CI owns it.
+7. **Commit granularly + push.** One logical fix per commit, Conventional Commits with scope (`fix(activities): move template query into repository (arch-B1)`). Reference the finding ID in the body. Push updates the PR (and fires the CI re-review for the human record).
+8. **Loop** back to step 2 — re-derive the open findings with a **fresh** `/pr-review` — for the next round.
 
 ### Termination
 
-- **Clean:** newest review has 0 `B*` + 0 `M*` (or an approving verdict). Done.
+- **Clean:** a **fresh** `/pr-review` on the current diff has 0 `B*` + 0 `M*`, and no unaddressed human comment. Done. (Not "the CI comment was empty" — that can be a dedupe artifact.)
 - **Cap hit:** after 3 fix rounds blockers remain → stop, report what's left and why (likely a genuine design problem the review keeps surfacing) — escalate to the author, don't keep pushing.
 - **Paused:** a finding conflicts with the spec or a §4a file → stop the loop, present the conflict, wait for a decision.
 
@@ -131,18 +143,18 @@ Auto-fix + re-review can ping-pong (a fix introduces a new finding). The cap bou
 | One giant "address review" commit | One logical fix per commit, Conventional Commits, cite the finding ID |
 | Not confirming the finding first | Read the cited file:line; the review can be wrong — skip false positives |
 | Infinite loop | Cap at 3 rounds; escalate surviving blockers |
+| Trusting the deduped CI comment to decide "clean" | Re-derive open findings with a **fresh** `/pr-review` each round; the CI comment suppresses still-open findings |
 | Reading an old review comment | Take the **newest** `claude[bot]` comment — the re-review already deduped |
 | Running the full pytest suite each round | Changed-file ruff + mypy only; CI runs the suite |
 
 ## Checklist
 
 - [ ] PR located (current branch or explicit number)
-- [ ] Waited for the review run to complete; matched `headSha` to HEAD
-- [ ] Read the **newest** `claude[bot]` review; parsed findings + verdict
+- [ ] Open findings derived from a **fresh** `/pr-review` (not the deduped CI comment) + any new human comments
 - [ ] Fixed only `B*`/`M*`; confirmed each against the cited file:line first
 - [ ] Paused on any spec-conflicting finding or §4a protected file
 - [ ] Nits (`N*`) listed for the author, not auto-fixed
 - [ ] Granular Conventional commits, finding ID in the body
 - [ ] Changed-file `ruff check` + `mypy app` pass
-- [ ] Pushed → re-review fired and deduped
-- [ ] Looped until 0 blockers + 0 majors, or stopped at the 3-round cap with a report
+- [ ] Pushed to update the PR
+- [ ] Looped until a fresh `/pr-review` shows 0 blockers + 0 majors, or stopped at the 3-round cap with a report
