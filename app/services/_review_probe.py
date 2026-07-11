@@ -15,3 +15,12 @@ class ReviewProbeService:
         if not user:
             raise HTTPException(status_code=404, detail="not found")
         return user
+
+
+class SecondProbeService:
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def bump(self, user_id: str) -> None:
+        await self.session.execute(select(User).where(User.id == user_id))
+        self.session.expire_all()
